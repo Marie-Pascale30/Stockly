@@ -1,0 +1,16 @@
+# Configuration locale (identifiants de base de données)
+.env
+
+# Fichiers générés à l'exécution
+writable/cache/*
+writable/logs/*
+writable/session/*
+writable/uploads/*
+writable/debugbar/*
+writable/database/
+!writable/*/index.html
+
+vendor/
+.vscode/
+.idea/
+.phpunit.result.cache

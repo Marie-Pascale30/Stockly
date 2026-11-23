@@ -1,0 +1,10 @@
+.git
+.env
+.vscode
+tests
+writable/cache/*
+writable/logs/*
+writable/session/*
+writable/debugbar/*
+writable/database
+!writable/*/index.html
