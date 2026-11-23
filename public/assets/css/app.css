@@ -420,8 +420,10 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .pager .pages button[disabled] { opacity: .35; pointer-events: none; }
 
 /* Listes */
-.list { display: grid; }
-.list-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px dashed var(--border); }
+/* minmax(0, 1fr) : la colonne ne dépasse jamais la carte, les noms longs passent en « … » */
+.list { display: grid; grid-template-columns: minmax(0, 1fr); }
+.list-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px dashed var(--border); min-width: 0; }
+.list-item > .btn, .list-item > .badge { flex-shrink: 0; }
 .list-item:last-child { border-bottom: 0; }
 .list-item .grow { flex: 1; min-width: 0; }
 .list-item .grow b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
