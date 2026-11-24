@@ -150,7 +150,7 @@ class ProductsController extends ApiController
         foreach ($builder->get()->getResultArray() as $row) {
             $p = Presenter::product($row);
             fputcsv($out, [
-                $p['reference'], $p['name'], $p['category'], $p['supplier'],
+                self::cell($p['reference']), self::cell($p['name']), self::cell($p['category']), self::cell($p['supplier']),
                 self::num($p['purchase_price']), self::num($p['sale_price']), self::num((float) $p['margin_rate']),
                 $p['stock'], $p['stock_min'], self::num($p['stock_value']), $labels[$p['status']],
             ], ';', '"', '');
@@ -298,6 +298,20 @@ class ProductsController extends ApiController
             'out_units'     => (int) $r['out_units'],
             'last_movement' => Presenter::date($r['last_movement']),
         ];
+    }
+
+    /**
+     * Neutralise l'injection de formules (CSV injection) : un texte saisi commençant par
+     * = + - @ (ou tabulation / retour chariot) serait exécuté comme formule par Excel ou
+     * LibreOffice. On le préfixe d'une apostrophe pour qu'il reste du texte.
+     */
+    private static function cell(?string $v): ?string
+    {
+        if ($v !== null && $v !== '' && str_contains("=+-@\t\r", $v[0])) {
+            return "'" . $v;
+        }
+
+        return $v;
     }
 
     private static function num(float $v): string
