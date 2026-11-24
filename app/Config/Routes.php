@@ -28,6 +28,7 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api', 'filter' => 'api
         $routes->post('auth/logout', 'AuthController::logout');
 
         $routes->put('me', 'MeController::update');
+        $routes->delete('me', 'MeController::destroy');
         $routes->put('me/password', 'MeController::password');
         $routes->put('me/settings', 'MeController::settings');
         $routes->get('me/sessions', 'MeController::sessions');

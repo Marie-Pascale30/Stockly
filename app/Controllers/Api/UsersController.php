@@ -16,9 +16,15 @@ class UsersController extends ApiController
         $builder = db_connect()->table('users u')
             ->select('u.*, COUNT(m.id) AS movements_count, MAX(m.movement_date) AS last_movement_at')
             ->join('stock_movements m', 'm.user_id = u.id', 'left')
-            ->groupBy('u.id, u.username, u.email, u.password_hash, u.role, u.is_active, u.last_login_at, u.created_at, u.updated_at')
+            ->groupBy('u.id, u.username, u.email, u.password_hash, u.role, u.is_active, u.is_demo, u.demo_sandbox, u.last_login_at, u.created_at, u.updated_at')
             ->orderBy('u.role', 'ASC')
             ->orderBy('u.username', 'ASC');
+
+        // Admin de démo (identifiants publics) : seuls les comptes du bac à sable de démo sont visibles,
+        // jamais les comptes créés par de vrais visiteurs.
+        if (Auth::inDemoSandbox()) {
+            $builder->groupStart()->where('u.is_demo', 1)->orWhere('u.demo_sandbox', 1)->groupEnd();
+        }
 
         if ($q = trim((string) $this->request->getGet('q'))) {
             $builder->groupStart()->like('u.username', $q)->orLike('u.email', $q)->groupEnd();
@@ -58,6 +64,8 @@ class UsersController extends ApiController
             'password_hash' => password_hash((string) $data['password'], PASSWORD_DEFAULT),
             'role'          => $data['role'],
             'is_active'     => 1,
+            // Créé depuis un compte de démo : reste dans le bac à sable de démo (visible par l'admin de démo).
+            'demo_sandbox'  => Auth::inDemoSandbox() ? 1 : 0,
             'created_at'    => $now,
             'updated_at'    => $now,
         ]);
@@ -73,8 +81,11 @@ class UsersController extends ApiController
     {
         $db   = db_connect();
         $user = $db->table('users')->where('id', $id)->get()->getRowArray();
-        if (! $user) {
+        if (! $user || Auth::cannotManage($user)) {
             return $this->notFound('Utilisateur introuvable.');
+        }
+        if (Auth::isDemo($user)) {
+            return $this->demoLocked();
         }
 
         $data = $this->payload() + ['username' => $user['username'], 'email' => $user['email'], 'role' => $user['role'], 'is_active' => $user['is_active']];
@@ -120,8 +131,11 @@ class UsersController extends ApiController
     {
         $db   = db_connect();
         $user = $db->table('users')->where('id', $id)->get()->getRowArray();
-        if (! $user) {
+        if (! $user || Auth::cannotManage($user)) {
             return $this->notFound('Utilisateur introuvable.');
+        }
+        if (Auth::isDemo($user)) {
+            return $this->demoLocked();
         }
         if ($id === Auth::id()) {
             return $this->conflict('Vous ne pouvez pas supprimer votre propre compte.');
@@ -150,6 +164,11 @@ class UsersController extends ApiController
             'password' => ['label' => 'Mot de passe', 'rules' => ($passwordRequired ? 'required' : 'permit_empty') . '|min_length[8]|max_length[255]'],
             'role'     => ['label' => 'Rôle', 'rules' => 'required|in_list[admin,employee]'],
         ];
+    }
+
+    private function demoLocked(): ResponseInterface
+    {
+        return $this->error(403, 'demo_account_locked', 'Les comptes de démonstration sont protégés : ils ne peuvent être ni modifiés, ni désactivés, ni supprimés.');
     }
 
     private function activeAdmins(): int

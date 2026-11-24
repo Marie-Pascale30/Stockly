@@ -13,6 +13,10 @@ class MeController extends ApiController
     /** PUT /me  { username, email } */
     public function update(): ResponseInterface
     {
+        if (Auth::isDemo()) {
+            return $this->demoLocked();
+        }
+
         $id   = Auth::id();
         $data = $this->payload();
         if (isset($data['email'])) {
@@ -39,6 +43,10 @@ class MeController extends ApiController
     /** PUT /me/password  { current_password, password, password_confirm } — déconnecte les autres appareils. */
     public function password(): ResponseInterface
     {
+        if (Auth::isDemo()) {
+            return $this->demoLocked();
+        }
+
         $data = $this->payload();
 
         if ($fail = $this->check($data, [
@@ -60,6 +68,42 @@ class MeController extends ApiController
         Auth::revokeAll(Auth::id(), keepCurrent: true);
 
         return $this->ok(['message' => 'Mot de passe mis à jour. Vos autres sessions ont été déconnectées.']);
+    }
+
+    /**
+     * DELETE /me  { password } — suppression définitive de son propre compte (droit à l'effacement).
+     * Les mouvements saisis restent dans l'historique, sans auteur.
+     */
+    public function destroy(): ResponseInterface
+    {
+        if (Auth::isDemo()) {
+            return $this->demoLocked();
+        }
+
+        $data = $this->payload();
+        if ($fail = $this->check($data, [
+            'password' => ['label' => 'Mot de passe', 'rules' => 'required|max_length[255]'],
+        ])) {
+            return $fail;
+        }
+        if (! password_verify((string) $data['password'], Auth::user()['password_hash'])) {
+            return $this->validationFailed(['password' => 'Mot de passe incorrect.']);
+        }
+
+        $id = Auth::id();
+        $db = db_connect();
+        if (Auth::isAdmin() && $db->table('users')->where('role', 'admin')->where('is_active', 1)->countAllResults() <= 1) {
+            return $this->conflict('Vous êtes le dernier administrateur actif : nommez-en un autre avant de supprimer votre compte.');
+        }
+
+        $db->transStart();
+        $db->table('stock_movements')->where('user_id', $id)->update(['user_id' => null]);
+        $db->table('api_tokens')->where('user_id', $id)->delete();
+        $db->table('user_settings')->where('user_id', $id)->delete();
+        $db->table('users')->where('id', $id)->delete();
+        $db->transComplete();
+
+        return $this->noContent();
     }
 
     /** PUT /me/settings  { theme, items_per_page, notifications, display_charts } (partiel accepté) */
@@ -120,5 +164,10 @@ class MeController extends ApiController
         Auth::revokeAll(Auth::id(), keepCurrent: true);
 
         return $this->noContent();
+    }
+
+    private function demoLocked(): ResponseInterface
+    {
+        return $this->error(403, 'demo_account_locked', 'Compte de démonstration : l’identifiant, l’email et le mot de passe ne peuvent pas être modifiés, et le compte ne peut pas être supprimé. Créez votre propre compte pour tester ces fonctions.');
     }
 }

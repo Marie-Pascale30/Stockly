@@ -28,6 +28,7 @@ export async function renderUsers(root) {
       <div class="head">${avatar(u.username, 'lg')}<div class="grow"><b>${esc(u.username)}${me ? ' <span class="badge brand" style="vertical-align:2px">Vous</span>' : ''}</b><span>${esc(u.email)}</span></div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${u.role === 'admin' ? `<span class="badge brand">${icon('crown')}Administrateur</span>` : `<span class="badge">${icon('user')}Employé</span>`}
+        ${u.is_demo ? `<span class="badge" title="Compte de démonstration protégé">${icon('lock')}Démo</span>` : ''}
         ${u.is_active ? `<span class="badge ok">${icon('checkCircle')}Actif</span>` : `<span class="badge out">${icon('xCircle')}Désactivé</span>`}
       </div>
       <div class="facts">
@@ -35,9 +36,10 @@ export async function renderUsers(root) {
         <div><span>Dernière connexion</span><b>${fmt.ago(u.last_login_at)}</b></div>
       </div>
       <div class="foot"><span class="muted" style="font-size:12px">Membre depuis ${fmt.date(u.created_at, { month: 'long', year: 'numeric' })}</span>
-        <div style="display:flex;gap:4px">
-          <button class="btn ghost icon sm" data-edit title="Modifier" aria-label="Modifier">${icon('edit')}</button>
-          ${me ? '' : `<button class="btn ghost icon sm" data-delete title="Supprimer" aria-label="Supprimer">${icon('trash')}</button>`}
+        <div style="display:flex;gap:4px">${u.is_demo
+          ? `<span class="muted" style="font-size:12px" title="Les comptes de démonstration ne peuvent être ni modifiés ni supprimés">${icon('lock')}</span>`
+          : `<button class="btn ghost icon sm" data-edit title="Modifier" aria-label="Modifier">${icon('edit')}</button>
+          ${me ? '' : `<button class="btn ghost icon sm" data-delete title="Supprimer" aria-label="Supprimer">${icon('trash')}</button>`}`}
         </div></div>
     </article>`;
   };

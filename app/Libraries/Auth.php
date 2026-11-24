@@ -34,6 +34,30 @@ final class Auth
         return (self::$user['role'] ?? null) === 'admin';
     }
 
+    /** Compte de démonstration aux identifiants publics (protégé). */
+    public static function isDemo(?array $user = null): bool
+    {
+        $user ??= self::$user;
+
+        return (bool) ($user['is_demo'] ?? false);
+    }
+
+    /**
+     * L'utilisateur courant agit depuis le « bac à sable » de démo
+     * (compte de démo ou compte créé depuis un compte de démo) :
+     * il ne voit et ne gère que les comptes du bac à sable.
+     */
+    public static function inDemoSandbox(): bool
+    {
+        return self::isDemo() || (bool) (self::$user['demo_sandbox'] ?? false);
+    }
+
+    /** Le compte $target est-il hors de portée de l'utilisateur courant ? */
+    public static function cannotManage(array $target): bool
+    {
+        return self::inDemoSandbox() && ! ($target['demo_sandbox'] ?? false) && ! ($target['is_demo'] ?? false);
+    }
+
     public static function tokenHash(): ?string
     {
         return self::$tokenHash;

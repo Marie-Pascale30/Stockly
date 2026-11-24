@@ -47,6 +47,8 @@ class DemoSeeder extends Seeder
                 'password_hash' => $hash,
                 'role'          => $role,
                 'is_active'     => 1,
+                'is_demo'       => 1, // identifiants publics : compte protégé
+                'demo_sandbox'  => 1,
                 'last_login_at' => $now->subHours(mt_rand(1, 96))->toDateTimeString(),
                 'created_at'    => $created,
                 'updated_at'    => $created,

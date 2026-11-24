@@ -16,6 +16,7 @@ final class Presenter
             'email'         => $u['email'],
             'role'          => $u['role'],
             'is_active'     => (bool) ($u['is_active'] ?? true),
+            'is_demo'       => (bool) ($u['is_demo'] ?? false),
             'last_login_at' => self::date($u['last_login_at'] ?? null),
             'created_at'    => self::date($u['created_at'] ?? null),
             'stats'         => isset($u['movements_count']) ? [
