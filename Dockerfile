@@ -9,6 +9,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/security.conf /etc/apache2/conf-available/security.conf
+COPY docker/php.ini /usr/local/etc/php/conf.d/zz-stockly.ini
 COPY docker/entrypoint.sh /usr/local/bin/stockly-entrypoint
 RUN sed -i 's/\r$//' /usr/local/bin/stockly-entrypoint && chmod +x /usr/local/bin/stockly-entrypoint
 

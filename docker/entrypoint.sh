@@ -19,11 +19,23 @@ database.default.DBDriver = SQLite3
 database.default.DBPrefix =
 database.default.foreignKeys = true
 EOF
-chown www-data:www-data .env
+# Fichier de configuration : lisible par Apache/PHP (groupe www-data) mais non modifiable par lui.
+chown root:www-data .env
+chmod 640 .env
 
 # Apache écoute sur le port imposé par l'hébergeur (Render : PORT)
 echo "Listen ${PORT}" > /etc/apache2/ports.conf
 export PORT
+
+# ServerName d'Apache : schéma + hôte + port publics tirés de APP_URL
+# (ex. https://stockly-fpaw.onrender.com/ → https://stockly-fpaw.onrender.com:443).
+SERVER_URL=$(printf '%s' "$APP_URL" | sed -E 's#^(https?://[^/]+).*#\1#')
+case "$SERVER_URL" in
+  *://*:*) ;;
+  https://*) SERVER_URL="${SERVER_URL}:443" ;;
+  *) SERVER_URL="${SERVER_URL}:80" ;;
+esac
+export SERVER_URL
 
 if [ ! -f "$DB_FILE" ]; then
   echo "Création de la base SQLite de démonstration…"
