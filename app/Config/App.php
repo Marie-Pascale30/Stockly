@@ -178,9 +178,20 @@ class App extends BaseConfig
      *         '192.168.5.0/24' => 'X-Real-IP',
      *     ]
      *
+     * Stockly sur Render : les requêtes publiques arrivent par Cloudflare puis par un
+     * proxy local au conteneur (REMOTE_ADDR = ::1 ou 127.0.0.1). CodeIgniter garde la
+     * PREMIÈRE adresse de l'en-tête, or X-Forwarded-For commence par ce que le client
+     * envoie lui-même : il serait falsifiable. On lit donc CF-Connecting-IP, que
+     * Cloudflare écrit seul (une valeur envoyée par le client est rejetée), et
+     * uniquement quand la requête vient du proxy local.
+     * Sans proxy (développement local), REMOTE_ADDR est utilisé tel quel.
+     *
      * @var array<string, string>
      */
-    public array $proxyIPs = [];
+    public array $proxyIPs = [
+        '127.0.0.1' => 'CF-Connecting-IP',
+        '::1'       => 'CF-Connecting-IP',
+    ];
 
     /**
      * --------------------------------------------------------------------------

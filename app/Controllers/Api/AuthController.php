@@ -9,6 +9,12 @@ use CodeIgniter\I18n\Time;
 
 class AuthController extends ApiController
 {
+    /**
+     * Empreinte bcrypt d'un mot de passe aléatoire inconnu : vérifiée quand le compte
+     * n'existe pas, pour que la réponse prenne le même temps (pas d'énumération des comptes).
+     */
+    private const DUMMY_HASH = '$2y$10$LZDcGlHAbs/glID1tTEhbusVO7d9Ot0VFpWUQoJPNlNxxr.smrf/m';
+
     /** POST /auth/login  { identifier (email ou nom d'utilisateur), password, remember } */
     public function login(): ResponseInterface
     {
@@ -29,8 +35,16 @@ class AuthController extends ApiController
             ->groupStart()->where('email', mb_strtolower($data['identifier']))->orWhere('username', $data['identifier'])->groupEnd()
             ->get()->getRowArray();
 
-        // Même message dans les deux cas : on ne révèle pas quels comptes existent.
-        if (! $user || ! password_verify((string) $data['password'], $user['password_hash'])) {
+        // Limite par compte visé (attaque distribuée sur plusieurs IP). Les comptes de démo,
+        // aux identifiants publics, en sont exemptés : sinon n'importe qui pourrait les bloquer.
+        if (! ($user && Auth::isDemo($user))
+            && ($limited = $this->throttle('login-id', 5, mb_strtolower($data['identifier'])))) {
+            return $limited;
+        }
+
+        // Même message et même durée dans les deux cas : on ne révèle pas quels comptes existent.
+        $valid = password_verify((string) $data['password'], $user['password_hash'] ?? self::DUMMY_HASH);
+        if (! $user || ! $valid) {
             return $this->error(401, 'invalid_credentials', 'Identifiants incorrects.');
         }
 
@@ -127,11 +141,11 @@ class AuthController extends ApiController
         ];
     }
 
-    /** Limite les tentatives par IP (anti force brute). */
-    private function throttle(string $action, int $perMinute): ?ResponseInterface
+    /** Limite les tentatives par IP (anti force brute), ou par identifiant si $subject est fourni. */
+    private function throttle(string $action, int $perMinute, ?string $subject = null): ?ResponseInterface
     {
         $throttler = service('throttler');
-        $key       = 'auth-' . $action . '-' . md5($this->request->getIPAddress());
+        $key       = 'auth-' . $action . '-' . md5($subject ?? $this->request->getIPAddress());
 
         if ($throttler->check($key, $perMinute, MINUTE) === false) {
             return $this->error(429, 'too_many_attempts', sprintf(
