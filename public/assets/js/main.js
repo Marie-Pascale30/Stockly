@@ -10,6 +10,7 @@ import { renderMovements } from './pages/movements.js';
 import { renderStats } from './pages/stats.js';
 import { renderUsers } from './pages/users.js';
 import { renderSettings } from './pages/settings.js';
+import { renderLegal } from './pages/legal.js';
 
 const app = document.getElementById('app');
 
@@ -67,6 +68,18 @@ function setQuery(name) {
 async function route() {
   const { name, query } = parseHash();
 
+  // Mentions légales : page autonome, accessible connecté ou non.
+  if (name === 'legal') {
+    shellMounted = false;
+    cleanup?.(); cleanup = null;
+    destroyCharts();
+    closeAllOverlays();
+    renderLegal(app);
+    document.title = 'Mentions légales & confidentialité · Stockly';
+    window.scrollTo({ top: 0 });
+    return;
+  }
+
   if (!session.token) {
     shellMounted = false;
     cleanup?.(); cleanup = null;
@@ -97,7 +110,7 @@ async function route() {
   window.scrollTo({ top: 0 });
 
   try {
-    const result = await def.render(content, { query, setQuery: setQuery(name), applyTheme, refreshShell });
+    const result = await def.render(content, { query, setQuery: setQuery(name), applyTheme, refreshShell, onAccountDeleted });
     if (typeof result === 'function') cleanup = result;
   } catch (err) {
     console.error(err);
@@ -130,6 +143,7 @@ function mountShell() {
         <div class="sidebar-foot">
           <div class="promo"><b>Astuce ✨</b><span>Appuyez sur <kbd>Ctrl</kbd> <kbd>K</kbd> pour tout trouver, <kbd>N</kbd> pour un nouveau mouvement.</span></div>
           <div class="user-card" data-user-card>${userCard(u)}</div>
+          <a class="legal-link" href="#/legal">Mentions légales &amp; confidentialité</a>
         </div>
       </aside>
       <div class="main">
@@ -293,6 +307,13 @@ async function logout() {
   try { await post('/auth/logout'); } catch {}
   session.clear();
   toast('À bientôt !', 'info', 'Déconnecté');
+  location.hash = '#/login';
+}
+
+function onAccountDeleted() {
+  session.clear();
+  closeAllOverlays();
+  toast('Votre compte et vos données personnelles ont été supprimés.', 'info', 'Compte supprimé');
   location.hash = '#/login';
 }
 

@@ -14,7 +14,7 @@ const art = `
         <div class="floater"><span>Sorties · 30 jours</span><b>485 unités</b></div>
       </div>
     </div>
-    <div class="foot">© ${new Date().getFullYear()} Stockly · API REST v1</div>
+    <div class="foot">© ${new Date().getFullYear()} Stockly · Démo de portfolio · <a href="#/legal">Mentions légales &amp; confidentialité</a></div>
   </aside>`;
 
 export function renderLogin(root, { onAuthenticated, mode = 'login' }) {
@@ -44,6 +44,8 @@ export function renderLogin(root, { onAuthenticated, mode = 'login' }) {
           <div class="field"><label for="a-pw2">Confirmation</label>
             <div class="input-icon">${icon('lock')}<input id="a-pw2" class="input" type="password" name="password_confirm" autocomplete="new-password" placeholder="Répétez le mot de passe"></div></div>
         `}
+        ${isLogin ? '' : `<p class="consent">Démo de portfolio : la base est effacée à chaque redémarrage du serveur, n’utilisez pas de vraies données.
+          En créant un compte, vous acceptez le traitement décrit dans les <a href="#/legal">mentions légales &amp; confidentialité</a>.</p>`}
         <button class="btn primary lg block" type="submit">${isLogin ? 'Se connecter' : 'Créer mon compte'} ${icon('arrowRight')}</button>
       </form>
       ${isLogin ? `
@@ -55,6 +57,7 @@ export function renderLogin(root, { onAuthenticated, mode = 'login' }) {
       <p class="switch-auth">${isLogin
         ? 'Pas encore de compte ? <a href="#/register">Inscrivez-vous</a>'
         : 'Déjà inscrit ? <a href="#/login">Connectez-vous</a>'}</p>
+      <p class="legal-link"><a href="#/legal">Mentions légales &amp; confidentialité</a></p>
     </div></main>
   </div>`;
 

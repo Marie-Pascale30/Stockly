@@ -1,9 +1,11 @@
 import { get, put, del, session } from '../api.js';
-import { $, $$, esc, icon, fmt, avatar, toast, formData, handleFormError, withLoading, skeleton } from '../ui.js';
+import { $, $$, esc, icon, fmt, avatar, toast, modal, formData, handleFormError, withLoading, skeleton } from '../ui.js';
+
+const DEMO_NOTE = `<div class="demo-note">${icon('lock')}<span><b>Compte de démonstration.</b> Ses identifiants sont publics : l’identifiant, l’email, le mot de passe et le rôle sont verrouillés et le compte ne peut pas être supprimé. Créez votre propre compte pour tester ces fonctions.</span></div>`;
 
 const TABS = [['profile', 'Profil', 'user'], ['security', 'Sécurité', 'shield'], ['preferences', 'Préférences', 'settings']];
 
-export async function renderSettings(root, { query, setQuery, applyTheme, refreshShell }) {
+export async function renderSettings(root, { query, setQuery, applyTheme, refreshShell, onAccountDeleted }) {
   let tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'profile';
 
   root.innerHTML = `
@@ -25,13 +27,14 @@ export async function renderSettings(root, { query, setQuery, applyTheme, refres
   // ---------------------------------------------------------------- Profil
   function profile() {
     const u = session.user;
-    panel.innerHTML = `<div class="card card-pad">
+    const locked = u.is_demo ? 'disabled' : '';
+    panel.innerHTML = `<div class="card card-pad">${u.is_demo ? DEMO_NOTE : ''}
       <div style="display:flex;gap:18px;align-items:center;margin-bottom:24px">${avatar(u.username, 'lg')}
         <div><h3 style="font-size:20px">${esc(u.username)}</h3><span class="muted">${u.role === 'admin' ? 'Administrateur' : 'Employé'} · membre depuis ${fmt.date(u.created_at, { month: 'long', year: 'numeric' })}</span></div></div>
       <form id="profile-form" class="form-grid" novalidate>
-        <div class="field"><label for="s-user">Nom d’utilisateur</label><input id="s-user" class="input" name="username" value="${esc(u.username)}"></div>
-        <div class="field"><label for="s-mail">Email</label><input id="s-mail" class="input" type="email" name="email" value="${esc(u.email)}"></div>
-        <div class="full" style="display:flex;justify-content:flex-end"><button class="btn primary" type="submit">${icon('check')}Enregistrer</button></div>
+        <div class="field"><label for="s-user">Nom d’utilisateur</label><input id="s-user" class="input" name="username" value="${esc(u.username)}" ${locked}></div>
+        <div class="field"><label for="s-mail">Email</label><input id="s-mail" class="input" type="email" name="email" value="${esc(u.email)}" ${locked}></div>
+        <div class="full" style="display:flex;justify-content:flex-end"><button class="btn primary" type="submit" ${locked}>${icon('check')}Enregistrer</button></div>
       </form></div>`;
     const form = $('#profile-form', panel);
     form.addEventListener('submit', async (e) => {
@@ -50,9 +53,11 @@ export async function renderSettings(root, { query, setQuery, applyTheme, refres
 
   // -------------------------------------------------------------- Sécurité
   async function security() {
+    const demo = Boolean(session.user.is_demo);
     panel.innerHTML = `<div class="stack">
       <div class="card card-pad"><h3 style="margin-bottom:4px">Changer de mot de passe</h3><p class="muted" style="margin:0 0 18px">Vos autres appareils seront déconnectés.</p>
-        <form id="pw-form" class="stack" novalidate style="max-width:460px">
+        ${demo ? DEMO_NOTE : ''}
+        <form id="pw-form" class="stack" novalidate style="max-width:460px" ${demo ? 'hidden' : ''}>
           <div class="field"><label for="p-cur">Mot de passe actuel</label><input id="p-cur" class="input" type="password" name="current_password" autocomplete="current-password"></div>
           <div class="field"><label for="p-new">Nouveau mot de passe</label><input id="p-new" class="input" type="password" name="password" autocomplete="new-password">
             <div class="strength" data-strength><i></i><i></i><i></i><i></i></div><span class="hint" data-strength-label>8 caractères minimum. Mélangez lettres, chiffres et symboles.</span></div>
@@ -63,7 +68,30 @@ export async function renderSettings(root, { query, setQuery, applyTheme, refres
         <div><h3>Sessions actives</h3><p class="muted" style="margin:4px 0 0">Appareils actuellement connectés à votre compte.</p></div>
         <button class="btn" data-revoke>${icon('logout')}Déconnecter les autres</button></div>
         <div class="list" data-sessions>${skeleton(48)}</div></div>
+      ${demo ? '' : `<div class="card card-pad danger-zone"><h3 style="margin-bottom:4px">Supprimer mon compte</h3>
+        <p class="muted" style="margin:0 0 14px">Votre compte, vos préférences et vos sessions sont effacés définitivement. Les mouvements de stock que vous avez saisis restent dans l’historique, sans votre nom.</p>
+        <button class="btn danger" data-delete-account>${icon('trash')}Supprimer mon compte</button></div>`}
     </div>`;
+
+    $('[data-delete-account]', panel)?.addEventListener('click', () => {
+      const m = modal({
+        title: 'Supprimer définitivement votre compte ?', ico: 'alert', icoCls: 'bad',
+        subtitle: 'Cette action est irréversible. Confirmez avec votre mot de passe.',
+        body: `<form id="del-form" class="stack" novalidate><div class="field"><label for="d-pw">Mot de passe</label><input id="d-pw" class="input" type="password" name="password" autocomplete="current-password" autofocus></div></form>`,
+        foot: `<button class="btn ghost" data-close>Annuler</button><button class="btn danger" type="submit" form="del-form" data-submit>${icon('trash')}Supprimer mon compte</button>`,
+      });
+      const delForm = $('#del-form', m.panel);
+      delForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await withLoading($('[data-submit]', m.panel), async () => {
+          try {
+            await del('/me', formData(delForm));
+            m.close();
+            onAccountDeleted?.();
+          } catch (err) { handleFormError(delForm, err); }
+        });
+      });
+    });
 
     const form = $('#pw-form', panel);
     form.password.addEventListener('input', () => {
